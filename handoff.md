@@ -1,7 +1,7 @@
 # 💊 Can This Mix? — Machine Learning Project Handoff
 
 > ⚠️ **IMPORTANT: EXTERNAL DATA LINKS** > Due to GitHub's 100MB file size limit, the trained models and raw datasets are hosted on Google Drive. 
-> **Download here:** [INSERT YOUR GOOGLE DRIVE LINK HERE]  
+> **Download here:** https://drive.google.com/drive/folders/10dWcM5xXWYQL8BGpbLCUBwJuUkEp2z-U?usp=sharing
 > *Please place `best_model.pkl`, `drug_smiles_dictionary.pkl`, and `db_drug_interactions.csv` in the root directory before running the app.*
 
 ## 1. Project Overview
