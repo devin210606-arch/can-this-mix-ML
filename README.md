@@ -47,6 +47,11 @@ can-this-mix-ML/
 - Python 3.9+
 - Git
 
+```bash
+you can also download the pkl file through this google drive too 
+https://drive.google.com/drive/folders/10dWcM5xXWYQL8BGpbLCUBwJuUkEp2z-U?usp=sharing
+```
+
 ### Step 1 — Clone the Repository
 
 ```bash
