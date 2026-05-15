@@ -1,9 +1,0 @@
-# Ignore massive dataset files
-*.csv
-
-# Ignore massive AI brains (Upload these to Google Drive instead)
-*.pkl
-
-# Ignore Python junk
-__pycache__/
-.ipynb_checkpoints/
