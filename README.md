@@ -1,7 +1,7 @@
 # 💊 Can This Mix? — Drug Interaction Predictor
 
 > **Machine Learning - Final Project**  
-> Devin Farrell · Navizar Maestiano Lubis · Zacky Satria Nugraha
+> Devin Farrell  · Navizar Maestiano Lubis · Zacky Satria Nugraha
 
 A binary classification system that predicts whether two drugs will have an **adverse interaction**, using Morgan Fingerprints (ECFP4) as chemical features and a Random Forest classifier trained on ~380,000 drug pairs.
 
@@ -60,10 +60,15 @@ cd can-this-mix-ML
 pip install -r requirements.txt
 ```
 
-If `requirements.txt` is not present, install manually:
+If `requirements.txt` is not present or doesnt work, try installinhg manually:
 
 ```bash
 pip install streamlit numpy pandas scikit-learn matplotlib seaborn joblib rdkit
+```
+One heads up: rdkit can be tricky to install via plain pip on some machines.the fix is:
+
+```bash
+pip install rdkit-pypi
 ```
 
 ### Step 3 — Verify the Dataset
