@@ -26,18 +26,14 @@ can-this-mix-ML/
 ├── eda_drug_interactions.ipynb     # Exploratory Data Analysis
 ├── model_training.ipynb            # Model training, evaluation & plot generation
 │
-├── drug_interactions_with_smiles.csv   # Core dataset (output of preprocessing)
-├── best_model.pkl                      # ⚠️ Not included — generate via notebook (see below)
-├── drug_smiles_dictionary.pkl          # ⚠️ Not included — generate via notebook (see below)
-│
-├── plot_08_model_comparison.png
-├── plot_09_roc_curves.png
-├── plot_10_confusion_matrices.png
-├── plot_11_feature_importance.png
-└── plot_12_cross_validation.png
+├── db_drug_interactions.csv   # Core dataset 
+├── drug_interactions_with_smiles.csv   # preprocessed dataset (output of preprocessing)
+├── best_model.pkl                      # ⚠️ Not included — generate via notebook / inside google drive
+├── drug_smiles_dictionary.pkl          # ⚠️ Not included — generate via notebook  / inside google drive
+
 ```
 
-> **Note:** `best_model.pkl` and `drug_smiles_dictionary.pkl` are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them (see Step 4 below).
+> **Note:** `best_model.pkl`, `drug_smiles_dictionary.pkl` `and other csv file are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them or you can download them in the google drive provided in the setup and installation.
 
 ---
 
