@@ -8,6 +8,7 @@ from datetime import datetime
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import RDLogger
+import plotly.graph_objects as go
 
 RDLogger.DisableLog('rdApp.*')
 
@@ -18,34 +19,71 @@ st.set_page_config(
     layout="wide"
 )
 
+# ── GLOBAL CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
 
     html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-
     .main { background-color: #f4f6fb; }
 
-    .card-danger {
-        padding: 22px 24px;
-        border-radius: 14px;
-        background: #fff5f5;
-        border-left: 6px solid #e53e3e;
-        margin-bottom: 12px;
-        color: #1a202c !important;
+    /* ── MEGA CARDS (The "Big Stuff" Results) ── */
+    .mega-card {
+        padding: 36px;
+        border-radius: 20px;
+        margin-bottom: 24px;
+        color: #ffffff !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
-    .card-danger h3, .card-danger p, .card-danger strong { color: #1a202c !important; }
-
-    .card-safe {
-        padding: 22px 24px;
-        border-radius: 14px;
-        background: #f0fff4;
-        border-left: 6px solid #38a169;
-        margin-bottom: 12px;
-        color: #1a202c !important;
+    .mega-safe {
+        background: linear-gradient(135deg, #0a1f11 0%, #051008 100%);
+        border: 1px solid #1a4225;
     }
-    .card-safe h3, .card-safe p, .card-safe strong { color: #1a202c !important; }
+    .mega-danger {
+        background: linear-gradient(135deg, #2b0e0e 0%, #140505 100%);
+        border: 1px solid #521818;
+    }
+    .mega-card h2 {
+        margin-top: 0;
+        font-size: 2.4rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .mega-safe h2 { color: #68d391 !important; }
+    .mega-danger h2 { color: #fc8181 !important; }
 
+    .mega-card p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: #a0aec0 !important;
+        margin-bottom: 28px;
+    }
+    .mega-card strong { color: #e2e8f0 !important; }
+
+    /* ── CONFIDENCE PILL ── */
+    .conf-badge {
+        display: inline-block;
+        font-size: 1.9rem;
+        font-weight: 700;
+        padding: 12px 36px;
+        border-radius: 50px;
+        letter-spacing: -0.5px;
+    }
+    .conf-badge-safe {
+        background: rgba(72,187,120,0.15);
+        border: 2px solid rgba(72,187,120,0.5);
+        color: #68d391;
+    }
+    .conf-badge-danger {
+        background: rgba(229,62,62,0.15);
+        border: 2px solid rgba(229,62,62,0.5);
+        color: #fc8181;
+    }
+
+    /* ── INFO ALERTS ── */
     .card-info {
         padding: 16px 20px;
         border-radius: 10px;
@@ -77,160 +115,205 @@ drug_names = sorted(drug_dict.keys())
 # ── CORE FUNCTIONS ─────────────────────────────────────────────────────────────
 def get_fingerprint(smiles: str):
     mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None
-    return np.array(
-        AllChem.GetMorganFingerprintAsBitVect(mol, radius=FP_RADIUS, nBits=FP_NBITS),
-        dtype=np.int8
-    )
+    if mol is None: return None
+    return np.array(AllChem.GetMorganFingerprintAsBitVect(mol, radius=FP_RADIUS, nBits=FP_NBITS), dtype=np.int8)
 
 def predict_interaction(drug_a: str, drug_b: str):
-    """
-    Symmetry fix: sort the pair alphabetically before fingerprint
-    concatenation so (Drug A, Drug B) == (Drug B, Drug A) always.
-    """
     name1, name2 = sorted([drug_a, drug_b])
     fp1 = get_fingerprint(drug_dict[name1])
     fp2 = get_fingerprint(drug_dict[name2])
 
-    if fp1 is None or fp2 is None:
-        return None, None
+    if fp1 is None or fp2 is None: return None, None
 
     X     = np.hstack([fp1, fp2]).reshape(1, -1)
-    proba = model.predict_proba(X)[0]          # single pass through all 200 trees
-    prediction  = int(np.argmax(proba))        # 0 or 1 — derived, not a second call
-    probability = float(proba[1])
-    return prediction, probability
+    proba = model.predict_proba(X)[0]          
+    prediction  = int(np.argmax(proba))        
+    probability = float(proba[1]) 
+    
+    safety_score = 100 - int(round(probability * 100))
+    return prediction, safety_score
+
+def create_horizontal_gauge(safety_score: int):
+    """Generates a sleek, wide Plotly gauge chart with absolutely no side numbers."""
+    fig = go.Figure(go.Indicator(
+        mode = "gauge", 
+        value = safety_score,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        gauge = {
+            'shape': "bullet",
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
+            'bar': {'color': "rgba(0,0,0,0)", 'thickness': 0},
+            'steps': [
+                {'range': [0, 35], 'color': "#E24B4A"},   # Red (Low Safety)
+                {'range': [35, 65], 'color': "#EF9F27"},  # Orange (Unclear)
+                {'range': [65, 100], 'color': "#97C459"}  # Green (High Safety)
+            ],
+            'threshold': {
+                'line': {'color': "#2b6cb0", 'width': 4}, # Bold blue marker
+                'thickness': 1,
+                'value': safety_score
+            }
+        }
+    ))
+    
+    # (The error-causing line was removed from right here!)
+    
+    fig.update_layout(
+        height=70, 
+        margin=dict(t=10, b=20, l=0, r=0), # Stretch it full width
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
+    return fig
+
+def render_info_boxes(safety_score: int):
+    """Highlights the active box and keeps inactive boxes readable in dark mode."""
+    inactive_bg = "rgba(255,255,255,0.05)"
+    inactive_text = "#a0aec0"
+    inactive_border = "transparent"
+
+    bg1, bg2, bg3 = inactive_bg, inactive_bg, inactive_bg
+    txt1, txt2, txt3 = inactive_text, inactive_text, inactive_text
+    bd1, bd2, bd3 = inactive_border, inactive_border, inactive_border
+    
+    # Apply bright colors ONLY to the active box
+    if safety_score <= 35:
+        bg1, txt1, bd1 = "#fcebeb", "#791F1F", "#E24B4A" 
+    elif safety_score <= 65:
+        bg2, txt2, bd2 = "#faeeda", "#633806", "#EF9F27" 
+    else:
+        bg3, txt3, bd3 = "#eaf3de", "#27500A", "#97C459" 
+
+    return f"""
+    <div style="display: flex; gap: 12px; margin-top: 0px; margin-bottom: 20px;">
+        <div style="flex: 1; padding: 16px; border-radius: 8px; background: {bg1}; border: 2px solid {bd1}; color: {txt1}; font-size: 0.8rem; line-height: 1.5; text-align: justify; transition: all 0.3s ease;">
+            <div style="text-align: center; margin-bottom: 8px;">
+                <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">LOW SAFETY</strong><br>
+                <span style="font-size: 0.75rem; opacity: 0.8;">0 – 35%</span>
+            </div>
+            This combination has been associated with severe adverse reactions. High-risk. A detailed analysis strongly suggests a very high likelihood of a dangerous interaction. Use extreme caution.
+        </div>
+        <div style="flex: 1; padding: 16px; border-radius: 8px; background: {bg2}; border: 2px solid {bd2}; color: {txt2}; font-size: 0.8rem; line-height: 1.5; text-align: justify; transition: all 0.3s ease;">
+             <div style="text-align: center; margin-bottom: 8px;">
+                <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">MEDIUM SAFETY</strong><br>
+                <span style="font-size: 0.75rem; opacity: 0.8;">35 – 65%</span>
+            </div>
+            We couldn't find definitive data. Interaction is moderately likely. Consult a pharmacist or doctor before taking these together. Use extreme caution.
+        </div>
+        <div style="flex: 1; padding: 16px; border-radius: 8px; background: {bg3}; border: 2px solid {bd3}; color: {txt3}; font-size: 0.8rem; line-height: 1.5; text-align: justify; transition: all 0.3s ease;">
+             <div style="text-align: center; margin-bottom: 8px;">
+                <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">HIGH SAFETY</strong><br>
+                <span style="font-size: 0.75rem; opacity: 0.8;">65 – 100%</span>
+            </div>
+            This classification is based on a clean record and low similarity to high-risk compounds. Low-risk. Confirm with a healthcare professional.
+        </div>
+    </div>
+    """
 
 def save_feedback(drug1, drug2, prediction_label, usefulness, ease, comment):
-    """Append one feedback row to CSV. Creates the file with a header if missing."""
     file_exists = os.path.exists(FEEDBACK_FILE)
     with open(FEEDBACK_FILE, 'a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         if not file_exists:
-            writer.writerow([
-                'timestamp', 'drug_1', 'drug_2', 'prediction',
-                'usefulness_1_to_5', 'ease_of_use_1_to_5', 'comment'
-            ])
-        writer.writerow([
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            drug1, drug2, prediction_label,
-            usefulness, ease, comment.strip()
-        ])
+            writer.writerow(['timestamp', 'drug_1', 'drug_2', 'prediction', 'usefulness', 'ease_of_use', 'comment'])
+        writer.writerow([datetime.now().strftime('%Y-%m-%d %H:%M:%S'), drug1, drug2, prediction_label, usefulness, ease, comment.strip()])
 
 # ── HEADER ─────────────────────────────────────────────────────────────────────
-col_logo, col_title = st.columns([1, 9])
-with col_logo:
-    st.image("https://cdn-icons-png.flaticon.com/512/2966/2966327.png", width=64)
-with col_title:
-    st.markdown("## 💊 Can This Mix?")
-    st.markdown(
-        "**AI-powered drug interaction checker** — enter two medications to see "
-        "if they may cause a dangerous reaction when taken together."
-    )
+# Using custom HTML for a massively scaled logo and title
+st.markdown("""
+<div style="display: flex; align-items: center; gap: 20px; margin-bottom: 8px;">
+    <img src="https://cdn-icons-png.flaticon.com/512/2966/2966327.png" width="85">
+    <h1 style="font-size: 3.5rem; margin: 0; font-weight: 800; letter-spacing: -1px;">Can This Mix?</h1>
+</div>
+<p style="font-size: 1.1rem; color: #a0aec0; margin-bottom: 30px;">
+    <strong>AI-powered drug interaction checker</strong> — enter two medications to see if they may cause a dangerous reaction when taken together.
+</p>
+""", unsafe_allow_html=True)
+
 st.divider()
 
 # ── MAIN LAYOUT ────────────────────────────────────────────────────────────────
-col_input, col_result = st.columns([4, 6], gap="large")
+# Changed from [3, 7] to [1, 1] so both sides take up exactly 50% of the screen
+col_input, col_result = st.columns([1, 1], gap="large")
 
 with col_input:
-    st.subheader("🔍 Check Two Medications")
-    st.caption("Start typing in either box to search by drug name.")
-
+    # Made the search title bigger to balance with the right side
+    st.markdown("<h2 style='font-size: 2rem; margin-top: 0; margin-bottom: 16px;'>🔍 Search Medications</h2>", unsafe_allow_html=True)
+    
     drug1 = st.selectbox("First medication:", drug_names, index=0)
-    drug2 = st.selectbox("Second medication:", drug_names,
-                         index=min(1, len(drug_names) - 1))
+    drug2 = st.selectbox("Second medication:", drug_names, index=min(1, len(drug_names) - 1))
 
     st.write("")
-    check_btn = st.button("Check for Interaction", type="primary",
-                          use_container_width=True)
+    check_btn = st.button("Check for Interaction", type="primary", use_container_width=True)
 
     st.divider()
     st.caption(f"🗄️ **{len(drug_names):,} drugs** in the database")
     st.caption("⚡ Results delivered in under 100 ms")
-    st.caption("⚠️ For informational use only — always consult a healthcare professional.")
 
 # ── RESULT PANEL ───────────────────────────────────────────────────────────────
 with col_result:
 
     if check_btn:
-
         if drug1 == drug2:
             st.warning("Please choose two *different* medications.")
-
         else:
             t0 = time.time()
-            prediction, probability = predict_interaction(drug1, drug2)
+            prediction, safety_score = predict_interaction(drug1, drug2)
             latency_ms = (time.time() - t0) * 1000
 
             if prediction is None:
-                st.error(
-                    "⚠️ We couldn't read the chemical structure for one or both "
-                    "drugs. Please try a different combination."
-                )
+                st.error("⚠️ We couldn't read the chemical structure for one or both drugs. Please try a different combination.")
             else:
-                # Persist result for the feedback widget below
-                st.session_state['last_result'] = {
-                    'drug1': drug1, 'drug2': drug2,
-                    'prediction': prediction, 'probability': probability
-                }
+                st.session_state['last_result'] = {'drug1': drug1, 'drug2': drug2, 'prediction': prediction}
                 st.session_state['feedback_submitted'] = False
 
-                st.subheader("📋 Result")
-
-                # ── INTERACTION DETECTED ──────────────────────────────────────
+                # ── INTERACTION DETECTED (Low Safety) ──────────────────────────────────────
                 if prediction == 1:
-                    risk_label = "High Risk" if probability >= 0.80 else "Moderate Risk"
-                    bar_color  = "🔴"        if probability >= 0.80 else "🟠"
-
                     st.markdown(f"""
-<div class="card-danger">
-<h3>{bar_color} Potential Interaction Detected — {risk_label}</h3>
-<p>
-Our model flagged <strong>{drug1}</strong> and <strong>{drug2}</strong> as a
-combination that may cause an <strong>adverse drug reaction</strong>.
-</p>
-<p>Interaction likelihood: <strong>{probability:.0%}</strong></p>
-</div>
-""", unsafe_allow_html=True)
+                    <div class="mega-card mega-danger">
+                        <h2>🔴 Potential Interaction Detected</h2>
+                        <p>
+                            <strong>{drug1}</strong> and <strong>{drug2}</strong> have been flagged with a <strong>High Interaction Risk</strong>. 
+                            A detailed molecular comparison has detected significant similarities to known high-risk interaction pairs.
+                        </p>
+                        <div class="conf-badge conf-badge-danger">
+                            {safety_score}% safety confidence
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    st.progress(probability,
-                                text=f"Interaction likelihood: {probability:.0%}")
+                    st.plotly_chart(create_horizontal_gauge(safety_score), use_container_width=True)
+                    st.markdown(render_info_boxes(safety_score), unsafe_allow_html=True)
 
                     st.markdown("""
-<div class="card-info">
-⚠️ <strong>What to do:</strong> Do not take these medications together without
-first speaking to your doctor or pharmacist. They can advise on a safe
-alternative or adjust your dosage.
-</div>
-""", unsafe_allow_html=True)
+                    <div class="card-info">
+                        ⚠️ <strong>What to do:</strong> Do not take these medications together without first speaking to your doctor or pharmacist. They can advise on a safe alternative.
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                # ── NO INTERACTION ────────────────────────────────────────────
+                # ── NO INTERACTION (High Safety) ────────────────────────────────────────────
                 else:
-                    safety_conf = 1.0 - probability
-
                     st.markdown(f"""
-<div class="card-safe">
-<h3>🟢 No Known Interaction Found</h3>
-<p>
-<strong>{drug1}</strong> and <strong>{drug2}</strong> were <strong>not flagged</strong>
-as a dangerous combination in our training database.
-</p>
-<p>Safety confidence: <strong>{safety_conf:.0%}</strong></p>
-</div>
-""", unsafe_allow_html=True)
+                    <div class="mega-card mega-safe">
+                        <h2>🟢 No Known Interaction Found</h2>
+                        <p>
+                            <strong>{drug1}</strong> and <strong>{drug2}</strong> were <strong>not flagged</strong> as a dangerous combination in our training database. 
+                            Their molecular profiles do not closely match known interacting pairs.
+                        </p>
+                        <div class="conf-badge conf-badge-safe">
+                            {safety_score}% safety confidence
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    st.progress(safety_conf,
-                                text=f"Safety confidence: {safety_conf:.0%}")
+                    st.plotly_chart(create_horizontal_gauge(safety_score), use_container_width=True)
+                    st.markdown(render_info_boxes(safety_score), unsafe_allow_html=True)
 
                     st.markdown("""
-<div class="card-info">
-ℹ️ <strong>Please note:</strong> A "no interaction" result does not guarantee
-these drugs are safe for <em>you</em> specifically. Individual health factors,
-age, weight, and other medications all matter. Always confirm with a healthcare
-professional before making any changes.
-</div>
-""", unsafe_allow_html=True)
+                    <div class="card-info">
+                        ℹ️ <strong>Please note:</strong> A "no interaction" result does not guarantee these drugs are safe for <em>you</em> specifically. Always confirm with a healthcare professional.
+                    </div>
+                    """, unsafe_allow_html=True)
 
                 st.caption(f"⚡ Analysis completed in `{latency_ms:.1f} ms`")
 
@@ -244,71 +327,24 @@ if 'last_result' in st.session_state:
     result = st.session_state['last_result']
 
     if not st.session_state.get('feedback_submitted', False):
-
         st.subheader("📝 Rate This Result")
-        st.caption(
-            "Your feedback is used to evaluate and improve this system — "
-            "it takes less than a minute and helps the research team."
-        )
+        st.caption("Your feedback helps the research team.")
 
-        USEFULNESS_LABELS = {
-            1: "1 — Not useful at all",
-            2: "2 — Slightly useful",
-            3: "3 — Somewhat useful",
-            4: "4 — Very useful",
-            5: "5 — Extremely useful",
-        }
-        EASE_LABELS = {
-            1: "1 — Very difficult",
-            2: "2 — Difficult",
-            3: "3 — Neutral",
-            4: "4 — Easy",
-            5: "5 — Very easy",
-        }
+        USEFULNESS_LABELS = {1: "1 — Not useful", 2: "2 — Not really useful", 3: "3 — Neutral", 4: "4 — Somewhat useful", 5: "5 — Extremely useful"}
+        EASE_LABELS = {1: "1 — Very difficult", 2: "2 — Difficult", 3: "3 — Neutral", 4: "4 — Easy", 5: "5 — Very easy"}
 
         fb_col1, fb_col2 = st.columns(2)
-
         with fb_col1:
-            usefulness = st.radio(
-                "How **useful** was this result?",
-                options=[1, 2, 3, 4, 5],
-                format_func=lambda x: USEFULNESS_LABELS[x],
-                index=2,
-                key="fb_usefulness"
-            )
-
+            usefulness = st.radio("How **useful** was this result?", options=[1, 2, 3, 4, 5], format_func=lambda x: USEFULNESS_LABELS[x], index=2)
         with fb_col2:
-            ease = st.radio(
-                "How **easy** was the app to use?",
-                options=[1, 2, 3, 4, 5],
-                format_func=lambda x: EASE_LABELS[x],
-                index=2,
-                key="fb_ease"
-            )
+            ease = st.radio("How **easy** was the app to use?", options=[1, 2, 3, 4, 5], format_func=lambda x: EASE_LABELS[x], index=2)
 
-        comment = st.text_area(
-            "Any comments or suggestions? *(optional)*",
-            placeholder="e.g. The result was clear and I knew what to do next…",
-            height=90,
-            key="fb_comment"
-        )
+        comment = st.text_area("Any comments or suggestions?", height=70)
 
         if st.button("Submit Feedback", type="secondary"):
-            prediction_label = (
-                "Interaction Detected" if result['prediction'] == 1
-                else "No Interaction"
-            )
-            save_feedback(
-                result['drug1'], result['drug2'],
-                prediction_label,
-                usefulness, ease,
-                st.session_state.get('fb_comment', '')
-            )
+            pred_label = "Interaction Detected" if result['prediction'] == 1 else "No Interaction"
+            save_feedback(result['drug1'], result['drug2'], pred_label, usefulness, ease, comment)
             st.session_state['feedback_submitted'] = True
             st.rerun()
-
     else:
-        st.success(
-            "✅ Thank you! Your feedback has been recorded and will be included "
-            "in the project evaluation."
-        )
+        st.success("✅ Thank you! Your feedback has been recorded.")
