@@ -81,7 +81,7 @@ python preprocessing.py
 
 > ⚠️ `preprocessing.py` fetches SMILES structures from the PubChem API and may take a long time depending on your connection. you can Skip this step if the CSV is already present by downloading immediately from the google drive.
 
-### Step 4 — Generate the Model Files
+### Step 4 — Generate the Model Files (optional)
 
 Open and run all cells in `model_training.ipynb` from top to bottom. This will:
 
