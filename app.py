@@ -9,6 +9,8 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import RDLogger
 import plotly.graph_objects as go
+import gspread
+from google.oauth2.service_account import Credentials
 
 RDLogger.DisableLog('rdApp.*')
 
@@ -102,6 +104,11 @@ FP_RADIUS     = 2
 FP_NBITS      = 2048
 FEEDBACK_FILE = "user_feedback.csv"
 
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
 # ── LOAD ASSETS (cached) ───────────────────────────────────────────────────────
 @st.cache_resource
 def load_assets():
@@ -109,8 +116,29 @@ def load_assets():
     drug_dict = joblib.load('drug_smiles_dictionary.pkl')
     return model, drug_dict
 
+@st.cache_resource
+def get_sheet():
+    """Connect to Google Sheet using service account credentials."""
+    if not os.path.exists("credentials.json"):
+        return None, "credentials.json not found — place it in the same folder as app.py"
+    try:
+        creds  = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+        client = gspread.authorize(creds)
+        sheet  = client.open_by_key("1UNhKPi4loMFx2sUf_EevnL5u-hUUIA-qx0rOnVM3OWU").sheet1
+        if sheet.row_values(1) == []:
+            sheet.append_row([
+                "timestamp", "drug_1", "drug_2", "prediction",
+                "usefulness_1_to_5", "ease_of_use_1_to_5", "comment"
+            ])
+        return sheet, None
+    except gspread.exceptions.SpreadsheetNotFound:
+        return None, "Could not open the Google Sheet — check that feedback@canthismix.iam.gserviceaccount.com is added as Editor"
+    except Exception as e:
+        return None, f"Google Sheets connection failed: {e}"
+
 model, drug_dict = load_assets()
 drug_names = sorted(drug_dict.keys())
+sheet, sheet_error = get_sheet()
 
 # ── CORE FUNCTIONS ─────────────────────────────────────────────────────────────
 def get_fingerprint(smiles: str):
@@ -126,17 +154,17 @@ def predict_interaction(drug_a: str, drug_b: str):
     if fp1 is None or fp2 is None: return None, None
 
     X     = np.hstack([fp1, fp2]).reshape(1, -1)
-    proba = model.predict_proba(X)[0]          
-    prediction  = int(np.argmax(proba))        
-    probability = float(proba[1]) 
-    
+    proba = model.predict_proba(X)[0]
+    prediction  = int(np.argmax(proba))
+    probability = float(proba[1])
+
     safety_score = 100 - int(round(probability * 100))
     return prediction, safety_score
 
 def create_horizontal_gauge(safety_score: int):
     """Generates a sleek, wide Plotly gauge chart with absolutely no side numbers."""
     fig = go.Figure(go.Indicator(
-        mode = "gauge", 
+        mode = "gauge",
         value = safety_score,
         domain = {'x': [0, 1], 'y': [0, 1]},
         gauge = {
@@ -144,23 +172,20 @@ def create_horizontal_gauge(safety_score: int):
             'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
             'bar': {'color': "rgba(0,0,0,0)", 'thickness': 0},
             'steps': [
-                {'range': [0, 35], 'color': "#E24B4A"},   # Red (Low Safety)
-                {'range': [35, 65], 'color': "#EF9F27"},  # Orange (Unclear)
-                {'range': [65, 100], 'color': "#97C459"}  # Green (High Safety)
+                {'range': [0, 35],  'color': "#E24B4A"},
+                {'range': [35, 65], 'color': "#EF9F27"},
+                {'range': [65, 100],'color': "#97C459"}
             ],
             'threshold': {
-                'line': {'color': "#2b6cb0", 'width': 4}, # Bold blue marker
+                'line': {'color': "#2b6cb0", 'width': 4},
                 'thickness': 1,
                 'value': safety_score
             }
         }
     ))
-    
-    # (The error-causing line was removed from right here!)
-    
     fig.update_layout(
-        height=70, 
-        margin=dict(t=10, b=20, l=0, r=0), # Stretch it full width
+        height=70,
+        margin=dict(t=10, b=20, l=0, r=0),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)"
     )
@@ -168,21 +193,20 @@ def create_horizontal_gauge(safety_score: int):
 
 def render_info_boxes(safety_score: int):
     """Highlights the active box and keeps inactive boxes readable in dark mode."""
-    inactive_bg = "rgba(255,255,255,0.05)"
-    inactive_text = "#a0aec0"
+    inactive_bg     = "rgba(255,255,255,0.05)"
+    inactive_text   = "#a0aec0"
     inactive_border = "transparent"
 
-    bg1, bg2, bg3 = inactive_bg, inactive_bg, inactive_bg
+    bg1, bg2, bg3   = inactive_bg, inactive_bg, inactive_bg
     txt1, txt2, txt3 = inactive_text, inactive_text, inactive_text
-    bd1, bd2, bd3 = inactive_border, inactive_border, inactive_border
-    
-    # Apply bright colors ONLY to the active box
+    bd1, bd2, bd3   = inactive_border, inactive_border, inactive_border
+
     if safety_score <= 35:
-        bg1, txt1, bd1 = "#fcebeb", "#791F1F", "#E24B4A" 
+        bg1, txt1, bd1 = "#fcebeb", "#791F1F", "#E24B4A"
     elif safety_score <= 65:
-        bg2, txt2, bd2 = "#faeeda", "#633806", "#EF9F27" 
+        bg2, txt2, bd2 = "#faeeda", "#633806", "#EF9F27"
     else:
-        bg3, txt3, bd3 = "#eaf3de", "#27500A", "#97C459" 
+        bg3, txt3, bd3 = "#eaf3de", "#27500A", "#97C459"
 
     return f"""
     <div style="display: flex; gap: 12px; margin-top: 0px; margin-bottom: 20px;">
@@ -191,35 +215,52 @@ def render_info_boxes(safety_score: int):
                 <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">LOW SAFETY</strong><br>
                 <span style="font-size: 0.75rem; opacity: 0.8;">0 – 35%</span>
             </div>
-            This combination has been associated with severe adverse reactions. High-risk. A detailed analysis strongly suggests a very high likelihood of a dangerous interaction. Use extreme caution.
+            This combination has been associated with adverse reactions. The available data strongly suggests a high likelihood of a dangerous interaction. Do not take together without speaking to a doctor.
         </div>
         <div style="flex: 1; padding: 16px; border-radius: 8px; background: {bg2}; border: 2px solid {bd2}; color: {txt2}; font-size: 0.8rem; line-height: 1.5; text-align: justify; transition: all 0.3s ease;">
              <div style="text-align: center; margin-bottom: 8px;">
-                <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">MEDIUM SAFETY</strong><br>
+                <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">UNCLEAR</strong><br>
                 <span style="font-size: 0.75rem; opacity: 0.8;">35 – 65%</span>
             </div>
-            We couldn't find definitive data. Interaction is moderately likely. Consult a pharmacist or doctor before taking these together. Use extreme caution.
+            We couldn't find enough information about this combination. That doesn't mean it's safe. Consult a pharmacist or doctor before taking these together.
         </div>
         <div style="flex: 1; padding: 16px; border-radius: 8px; background: {bg3}; border: 2px solid {bd3}; color: {txt3}; font-size: 0.8rem; line-height: 1.5; text-align: justify; transition: all 0.3s ease;">
              <div style="text-align: center; margin-bottom: 8px;">
                 <strong style="font-size: 0.9rem; letter-spacing: 0.5px;">HIGH SAFETY</strong><br>
                 <span style="font-size: 0.75rem; opacity: 0.8;">65 – 100%</span>
             </div>
-            This classification is based on a clean record and low similarity to high-risk compounds. Low-risk. Confirm with a healthcare professional.
+            This combination does not appear in known interaction records. No database is complete — always confirm with a healthcare professional before making changes.
         </div>
     </div>
     """
 
 def save_feedback(drug1, drug2, prediction_label, usefulness, ease, comment):
-    file_exists = os.path.exists(FEEDBACK_FILE)
-    with open(FEEDBACK_FILE, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(['timestamp', 'drug_1', 'drug_2', 'prediction', 'usefulness', 'ease_of_use', 'comment'])
-        writer.writerow([datetime.now().strftime('%Y-%m-%d %H:%M:%S'), drug1, drug2, prediction_label, usefulness, ease, comment.strip()])
+    row = [
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        drug1, drug2, prediction_label,
+        usefulness, ease, comment.strip()
+    ]
+    if sheet is not None:
+        try:
+            sheet.append_row(row)
+            return True, None
+        except Exception as e:
+            err = f"Sheet write failed: {e}"
+    else:
+        err = sheet_error
+
+    try:
+        file_exists = os.path.exists(FEEDBACK_FILE)
+        with open(FEEDBACK_FILE, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(['timestamp','drug_1','drug_2','prediction','usefulness_1_to_5','ease_of_use_1_to_5','comment'])
+            writer.writerow(row)
+        return False, err
+    except Exception as csv_err:
+        return False, f"{err} | CSV also failed: {csv_err}"
 
 # ── HEADER ─────────────────────────────────────────────────────────────────────
-# Using custom HTML for a massively scaled logo and title
 st.markdown("""
 <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 8px;">
     <img src="https://cdn-icons-png.flaticon.com/512/2966/2966327.png" width="85">
@@ -233,13 +274,11 @@ st.markdown("""
 st.divider()
 
 # ── MAIN LAYOUT ────────────────────────────────────────────────────────────────
-# Changed from [3, 7] to [1, 1] so both sides take up exactly 50% of the screen
 col_input, col_result = st.columns([1, 1], gap="large")
 
 with col_input:
-    # Made the search title bigger to balance with the right side
     st.markdown("<h2 style='font-size: 2rem; margin-top: 0; margin-bottom: 16px;'>🔍 Search Medications</h2>", unsafe_allow_html=True)
-    
+
     drug1 = st.selectbox("First medication:", drug_names, index=0)
     drug2 = st.selectbox("Second medication:", drug_names, index=min(1, len(drug_names) - 1))
 
@@ -267,13 +306,12 @@ with col_result:
                 st.session_state['last_result'] = {'drug1': drug1, 'drug2': drug2, 'prediction': prediction}
                 st.session_state['feedback_submitted'] = False
 
-                # ── INTERACTION DETECTED (Low Safety) ──────────────────────────────────────
                 if prediction == 1:
                     st.markdown(f"""
                     <div class="mega-card mega-danger">
                         <h2>🔴 Potential Interaction Detected</h2>
                         <p>
-                            <strong>{drug1}</strong> and <strong>{drug2}</strong> have been flagged with a <strong>High Interaction Risk</strong>. 
+                            <strong>{drug1}</strong> and <strong>{drug2}</strong> have been flagged with a <strong>High Interaction Risk</strong>.
                             A detailed molecular comparison has detected significant similarities to known high-risk interaction pairs.
                         </p>
                         <div class="conf-badge conf-badge-danger">
@@ -291,13 +329,12 @@ with col_result:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # ── NO INTERACTION (High Safety) ────────────────────────────────────────────
                 else:
                     st.markdown(f"""
                     <div class="mega-card mega-safe">
                         <h2>🟢 No Known Interaction Found</h2>
                         <p>
-                            <strong>{drug1}</strong> and <strong>{drug2}</strong> were <strong>not flagged</strong> as a dangerous combination in our training database. 
+                            <strong>{drug1}</strong> and <strong>{drug2}</strong> were <strong>not flagged</strong> as a dangerous combination in our training database.
                             Their molecular profiles do not closely match known interacting pairs.
                         </p>
                         <div class="conf-badge conf-badge-safe">
@@ -318,8 +355,7 @@ with col_result:
                 st.caption(f"⚡ Analysis completed in `{latency_ms:.1f} ms`")
 
     elif 'last_result' not in st.session_state:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.info("👈 Select two medications on the left, then click **Check for Interaction**.")
+        pass
 
 # ── FEEDBACK SECTION ───────────────────────────────────────────────────────────
 if 'last_result' in st.session_state:
@@ -343,8 +379,15 @@ if 'last_result' in st.session_state:
 
         if st.button("Submit Feedback", type="secondary"):
             pred_label = "Interaction Detected" if result['prediction'] == 1 else "No Interaction"
-            save_feedback(result['drug1'], result['drug2'], pred_label, usefulness, ease, comment)
+            sent_to_sheets, err = save_feedback(result['drug1'], result['drug2'], pred_label, usefulness, ease, comment)
             st.session_state['feedback_submitted'] = True
+            st.session_state['feedback_sheets_ok'] = sent_to_sheets
+            st.session_state['feedback_err'] = err
             st.rerun()
     else:
-        st.success("✅ Thank you! Your feedback has been recorded.")
+        if st.session_state.get('feedback_sheets_ok'):
+            st.success("✅ Thank you! Your feedback has been recorded.")
+        else:
+            st.success("✅ Thank you! Your feedback has been saved locally.")
+            if st.session_state.get('feedback_err'):
+                st.warning(f"⚠️ Google Sheets unavailable — {st.session_state['feedback_err']}. Feedback saved to `user_feedback.csv` instead.")

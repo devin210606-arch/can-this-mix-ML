@@ -30,10 +30,9 @@ can-this-mix-ML/
 ├── drug_interactions_with_smiles.csv   # preprocessed dataset (output of preprocessing)
 ├── best_model.pkl                      # ⚠️ Not included — generate via notebook / inside google drive
 ├── drug_smiles_dictionary.pkl          # ⚠️ Not included — generate via notebook  / inside google drive
-
 ```
 
-> **Note:** `best_model.pkl`, `drug_smiles_dictionary.pkl` `and other csv file are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them or you can download them in the google drive provided in the setup and installation.
+> **Note:** `best_model.pkl`, `drug_smiles_dictionary.pkl` `and other csv file are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them or you can download them in the google drive provided in the setup and installation. you can skip the whole model_training.ipynb,eda_drug_interactions.ipynb and preprocessing.py and immediately run the app.py by downloading the whole google drive and placing to the same folder this means u can skip step 3 and step 4 under.
 
 ---
 
@@ -43,8 +42,8 @@ can-this-mix-ML/
 - Python 3.9+
 - Git
 
+*Google drive link*
 ```bash
-you can also download the pkl file through this google drive too 
 https://drive.google.com/drive/folders/10dWcM5xXWYQL8BGpbLCUBwJuUkEp2z-U?usp=sharing
 ```
 
@@ -72,7 +71,7 @@ One heads up: rdkit can be tricky to install via plain pip on some machines.the 
 pip install rdkit-pypi
 ```
 
-### Step 3 — Verify the Dataset
+### Step 3 — Verify the Dataset (optional)
 
 Make sure `drug_interactions_with_smiles.csv` is present in the root directory. This is the preprocessed dataset output. If it is missing, run `preprocessing.py` first:
 
@@ -80,7 +79,7 @@ Make sure `drug_interactions_with_smiles.csv` is present in the root directory. 
 python preprocessing.py
 ```
 
-> ⚠️ `preprocessing.py` fetches SMILES structures from the PubChem API and may take a long time depending on your connection. Skip this step if the CSV is already present.
+> ⚠️ `preprocessing.py` fetches SMILES structures from the PubChem API and may take a long time depending on your connection. you can Skip this step if the CSV is already present by downloading immediately from the google drive.
 
 ### Step 4 — Generate the Model Files
 
@@ -92,7 +91,7 @@ Open and run all cells in `model_training.ipynb` from top to bottom. This will:
 - Save `best_model.pkl` and `drug_smiles_dictionary.pkl` to the root directory
 - Save all 5 evaluation plots
 
-> ⚠️ Training may take **5–15 minutes** depending on your hardware. The notebook is configured to manage memory and parallelism safely.
+> ⚠️ Training may take **5–15 minutes** depending on your hardware. The notebook is configured to manage memory and parallelism safely. u can skip this step by downloading the pkl file available on the google drive link
 
 ### Step 5 — Run the App
 
@@ -102,14 +101,17 @@ streamlit run app.py
 
 Then open your browser at `http://localhost:8501`.
 
+please submit your feedback under the page after trying the app 
+thank you!!
+
 ---
 
 ## 📊 Model Performance
 
 | Model | Recall | Precision | F1-Score | ROC-AUC |
 |---|---|---|---|---|
-| Random Forest 🏆 | See notebook | See notebook | See notebook | **0.8843** (CV) |
-| Logistic Regression | See notebook | See notebook | See notebook | See notebook |
+| Random Forest 🏆 | **0.7153** | **0.8636** | **0.7825** | **0.8843** |
+| Logistic Regression | 0.5552 | 0.6450 | 0.5967 | 0.6701 |
 
 > **Priority metric: Recall** — in a medical context, missing a dangerous interaction (false negative) carries a significantly higher real-world cost than a false alarm.
 
