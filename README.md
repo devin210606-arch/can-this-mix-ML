@@ -12,7 +12,7 @@ A binary classification system that predicts whether two drugs will have an **ad
 1. Each drug's SMILES string is converted into a **2,048-bit Morgan Fingerprint** (ECFP4, radius=2)
 2. The two fingerprints are concatenated into a **4,096-dimensional binary vector**
 3. A **Random Forest** (200 trees) classifies the pair as *safe* or *adverse interaction*
-4. Results are delivered in **~10–20 ms** via an offline SMILES lookup dictionary
+4. Results are delivered in **under 100 ms** via an offline SMILES lookup dictionary
 
 ---
 
@@ -103,7 +103,12 @@ Then open your browser at `http://localhost:8501`.
 
 please submit your feedback under the page after trying the app 
 thank you!!
+or you can also see our application without download by following this link 
 
+```bash
+https://huggingface.co/spaces/Turu67/can-this-mix
+```
+once again thanks for trying our app and giving your feedback we apppreciate your feedback!
 ---
 
 ## 📊 Model Performance
