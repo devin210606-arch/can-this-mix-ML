@@ -32,7 +32,7 @@ can-this-mix-ML/
 ├── drug_smiles_dictionary.pkl          # ⚠️ Not included — generate via notebook  / inside google drive
 ```
 
-> **Note:** `best_model.pkl`, `drug_smiles_dictionary.pkl` `and other csv file are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them or you can download them in the google drive provided in the setup and installation. you can skip the whole model_training.ipynb,eda_drug_interactions.ipynb and preprocessing.py and immediately run the app.py by downloading the whole google drive and placing to the same folder this means u can skip step 3 and step 4 under.
+> **Note:** `best_model.pkl`, `drug_smiles_dictionary.pkl` `and other csv file are excluded from this repo due to file size. Run `model_training.ipynb` to regenerate them or you can download them in the google drive provided in the setup and installation. you can skip the whole model_training.ipynb,eda_drug_interactions.ipynb and preprocessing.py and immediately run the app.py by downloading the whole google drive and placing to the same folder this means you can skip step 3 and step 4 under.
 
 ---
 
@@ -44,7 +44,7 @@ can-this-mix-ML/
 
 *Google drive link*
 ```bash
-https://drive.google.com/drive/folders/10dWcM5xXWYQL8BGpbLCUBwJuUkEp2z-U?usp=sharing
+[📥 Download from Google Drive](https://drive.google.com/drive/folders/10dWcM5xXWYQL8BGpbLCUBwJuUkEp2z-U?usp=sharing)
 ```
 
 ### Step 1 — Clone the Repository
@@ -60,7 +60,7 @@ cd can-this-mix-ML
 pip install -r requirements.txt
 ```
 
-If `requirements.txt` is not present or doesnt work, try installinhg manually:
+If `requirements.txt` is not present or doesnt work, try installing manually:
 
 ```bash
 pip install streamlit numpy pandas scikit-learn matplotlib seaborn joblib rdkit
@@ -91,7 +91,7 @@ Open and run all cells in `model_training.ipynb` from top to bottom. This will:
 - Save `best_model.pkl` and `drug_smiles_dictionary.pkl` to the root directory
 - Save all 5 evaluation plots
 
-> ⚠️ Training may take **5–15 minutes** depending on your hardware. The notebook is configured to manage memory and parallelism safely. u can skip this step by downloading the pkl file available on the google drive link
+> ⚠️ Training may take **5–15 minutes** depending on your hardware. The notebook is configured to manage memory and parallelism safely. you can skip this step by downloading the pkl file available on the google drive link
 
 ### Step 5 — Run the App
 
@@ -108,7 +108,7 @@ or you can also see our application without download by following this link
 ```bash
 https://huggingface.co/spaces/Turu67/can-this-mix
 ```
-once again thanks for trying our app and giving your feedback we apppreciate your feedback!
+once again thanks for trying our app and giving your feedback we appreciate your feedback!
 ---
 
 ## 📊 Model Performance
