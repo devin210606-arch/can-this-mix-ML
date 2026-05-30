@@ -147,18 +147,19 @@ def get_fingerprint(smiles: str):
     return np.array(AllChem.GetMorganFingerprintAsBitVect(mol, radius=FP_RADIUS, nBits=FP_NBITS), dtype=np.int8)
 
 def predict_interaction(drug_a: str, drug_b: str):
-    name1, name2 = sorted([drug_a, drug_b])
-    fp1 = get_fingerprint(drug_dict[name1])
-    fp2 = get_fingerprint(drug_dict[name2])
+    fp1 = get_fingerprint(drug_dict[drug_a])
+    fp2 = get_fingerprint(drug_dict[drug_b])
 
     if fp1 is None or fp2 is None: return None, None
+    X_forward = np.hstack([fp1, fp2]).reshape(1, -1)
+    X_backward = np.hstack([fp2, fp1]).reshape(1, -1)
+    prob_forward = float(model.predict_proba(X_forward)[0][1])
+    prob_backward = float(model.predict_proba(X_backward)[0][1])
+    max_danger_prob = max(prob_forward, prob_backward)
 
-    X     = np.hstack([fp1, fp2]).reshape(1, -1)
-    proba = model.predict_proba(X)[0]
-    prediction  = int(np.argmax(proba))
-    probability = float(proba[1])
-
-    safety_score = 100 - int(round(probability * 100))
+    prediction = 1 if max_danger_prob >= 0.5 else 0
+    safety_score = 100 - int(round(max_danger_prob * 100))
+    
     return prediction, safety_score
 
 def create_horizontal_gauge(safety_score: int):
