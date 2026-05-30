@@ -8,6 +8,7 @@ A binary classification system that predicts whether two drugs will have an **ad
 ---
 
 ## 🎯 How It Works
+Base drug-pair interaction data sourced from the Drug-Drug Interactions dataset on Kaggle. https://www.kaggle.com/datasets/mghobashy/drug-drug-interactions
 
 1. Each drug's SMILES string is converted into a **2,048-bit Morgan Fingerprint** (ECFP4, radius=2)
 2. The app concatenates the fingerprints in both directions (Forward and Backward) and evaluates both 4,096-dimensional vectors to ensure no asymmetric interactions are missed.
