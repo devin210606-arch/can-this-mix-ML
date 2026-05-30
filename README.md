@@ -10,7 +10,7 @@ A binary classification system that predicts whether two drugs will have an **ad
 ## 🎯 How It Works
 
 1. Each drug's SMILES string is converted into a **2,048-bit Morgan Fingerprint** (ECFP4, radius=2)
-2. The two fingerprints are concatenated into a **4,096-dimensional binary vector**
+2. The app concatenates the fingerprints in both directions (Forward and Backward) and evaluates both 4,096-dimensional vectors to ensure no asymmetric interactions are missed.
 3. A **Random Forest** (200 trees) classifies the pair as *safe* or *adverse interaction*
 4. Results are delivered in **under 100 ms** via an offline SMILES lookup dictionary
 
@@ -132,7 +132,7 @@ once again thanks for trying our app and giving your feedback we appreciate your
 | Nested parallelism crashing RAM | Limited CV to `n_jobs=2`, estimator to `n_jobs=4` |
 | PubChem API latency (1–3s) | Pre-exported offline SMILES dictionary loaded via `@st.cache_resource` |
 | Inference API mismatch | Standardized both training and inference to `AllChem.GetMorganFingerprintAsBitVect` |
-| Asymmetric predictions | Drug pairs sorted alphabetically before inference for consistent results |
+| Asymmetric predictions |Implemented Bidirectional Inference (evaluating both A+B and B+A configurations and taking the highest risk probability) to eliminate Train-Serve skew and maximize Recall. |
 
 ---
 
